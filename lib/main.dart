@@ -2,11 +2,29 @@ import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 void main() {
   runApp(const MyApp());
+}
+
+class ResponseData {
+  final bool message;
+  final String? type;
+  final String? connectionStatus;
+
+  ResponseData(this.message, this.type, this.connectionStatus);
+
+  ResponseData.fromJson(Map<String, dynamic> json)
+      : message = json['message'],
+        type = json['type'],
+        connectionStatus = json['connectionStatus'];
+
+  Map<String, dynamic> toJson() => {
+        'message': message,
+        'type': type,
+        'connectionStatus': connectionStatus,
+      };
 }
 
 class MyApp extends StatelessWidget {
@@ -34,10 +52,11 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   final TextEditingController _controller = TextEditingController();
   final _channel = WebSocketChannel.connect(
-    Uri.parse('ws://192.168.1.65:8000/ws/music/oom/'),
+    Uri.parse('ws://10.0.2.2:8000/ws/music/zero/'),
   );
 
   late AudioPlayer player;
+
   @override
   void initState() {
     super.initState();
@@ -57,19 +76,20 @@ class _MyHomePageState extends State<MyHomePage> {
             const SizedBox(width: 10),
             ElevatedButton(
               onPressed: () async {
-                await player.setUrl('http://192.168.1.65:8000/api/send/');
-                player.play();
+                await player.setUrl('http://10.0.2.2:8000/api/send/');
+                player.pause();
               },
-              child: Text('Play'),
+              child: const Text('Ready audio files'),
             ),
             const SizedBox(width: 10),
             ElevatedButton(
               onPressed: () async {
-                final response = await http
-                    .get(Uri.parse('http://192.168.1.65:8000/api/send/'));
+                final response =
+                    await http.get(Uri.parse('http://10.0.2.2:8000/api/send/'));
 
                 var responseData = json.decode(response.body);
                 print(responseData);
+                player.stop();
               },
               child: const Text('Pause'),
             ),
@@ -77,7 +97,15 @@ class _MyHomePageState extends State<MyHomePage> {
             StreamBuilder(
               stream: _channel.stream,
               builder: (context, snapshot) {
-                return Text(snapshot.hasData ? '${snapshot.data}' : 'error');
+                print(snapshot.data);// TODO: Debug code
+                var response = jsonDecode(snapshot.data);
+                var data = ResponseData.fromJson(response);
+                if (data.message) {
+                  player.play();
+                } else {
+                  player.pause();
+                }
+                return Text(data.message ? 'Playing' : 'Paused');
               },
             )
           ],
