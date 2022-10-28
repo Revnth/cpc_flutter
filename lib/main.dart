@@ -4,6 +4,10 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
+import 'package:dio/dio.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:downloads_path_provider_28/downloads_path_provider_28.dart';
+
 void main() {
   runApp(const MyApp());
 }
@@ -52,10 +56,12 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   final TextEditingController _controller = TextEditingController();
   final _channel = WebSocketChannel.connect(
-    Uri.parse('ws://10.0.2.2:8000/ws/music/zero/'),
+    Uri.parse('ws://10.0.2.2:8000/ws/music/oom/'),
   );
 
   late AudioPlayer player;
+
+  String fileurl = "http://10.0.2.2:8000/api/send/";
 
   @override
   void initState() {
@@ -77,7 +83,14 @@ class _MyHomePageState extends State<MyHomePage> {
             ElevatedButton(
               onPressed: () async {
                 await player.setUrl('http://10.0.2.2:8000/api/send/');
-                player.pause();
+                player.play();
+              },
+              child: const Text('Play'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                await player.setUrl('http://10.0.2.2:8000/api/send/');
+                // player.pause();
               },
               child: const Text('Ready audio files'),
             ),
@@ -107,6 +120,41 @@ class _MyHomePageState extends State<MyHomePage> {
                 }
                 return Text(data.message ? 'Playing' : 'Paused');
               },
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () async {
+                Map<Permission, PermissionStatus> statuses = await [
+                  Permission.storage,
+                ].request();
+
+                if(statuses[Permission.storage]!.isGranted){
+                  var dir = await DownloadsPathProvider.downloadsDirectory;
+                  if(dir!=null){
+                    String savename = "oom.mp3";
+                    String savePath = dir.path + "/$savename";
+                    print(savePath);
+
+                    try{
+                      await Dio().download(
+                        fileurl,
+                        savePath,
+                        onReceiveProgress: (received, total) {
+                          if(total!=-1){
+                            print((received / total * 100).toStringAsFixed(0) + "%");
+                          }
+                        }
+                      );
+                      print("File is saved to download folder.");
+                    } on DioError catch (e){
+                      print(e.message);
+                    }
+                  }
+                } else{
+                  print("No permission to read and write.");
+                }
+              },
+              child: Text("Download"),
             )
           ],
         ),
